@@ -1,0 +1,81 @@
+name: CI CMS e API
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: Verificar API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Instalar dependencias da API
+        run: npm ci
+
+      - name: Verificar sintaxe dos arquivos JavaScript
+        shell: bash
+        run: |
+          find . \
+            -type d \( -name node_modules -o -name public -o -name .git \) -prune \
+            -o -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \) -print0 \
+            | xargs -0 -r -n 1 node --check
+
+  cms:
+    name: Analisar e compilar CMS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    defaults:
+      run:
+        working-directory: front-end
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+
+      - name: Instalar dependencias do CMS
+        run: npm ci
+
+      - name: Analisar codigo do CMS
+        run: npm run lint
+
+      - name: Compilar CMS
+        run: npm run build
