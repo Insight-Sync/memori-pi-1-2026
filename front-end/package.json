@@ -25,6 +25,7 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@tailwindcss/postcss": "^4.3.3",
     "eslint": "^9",
     "eslint-config-next": "^15.5.21",

@@ -1,75 +1,93 @@
-import Usuario from '../models/Usuarios.js';
+import Usuario from "../models/Usuarios.js";
+import bcrypt from "bcryptjs";
+import { timingSafeEqual } from "node:crypto";
 
-class usuarioService {
-    async getAll() {
-        try {
-            const usuarios = await Usuario.find();
-            return usuarios;
-        } catch (error) {
-            console.log(error);
-        }
-    }
+class UsuarioService {
+  async getAll() {
+    return Usuario.find();
+  }
 
-    async Create(nome, nomeUsuario, emailUsuario, senhaUsuario, permissao) { 
-        try {
-            const newUsuario = new Usuario({
-                nome,
-                nomeUsuario,
-                emailUsuario,  
-                senhaUsuario,
-                permissao,
-            });
-            await newUsuario.save();
-        } catch (error) {
-            console.log(error);
-        }
-    }
-    
-    async Delete(id) {
-        try {
-            await Usuario.findByIdAndDelete(id);   
-            console.log(`Usuario com id ${id} deletado com sucesso!`);
-        } catch (error) {
-            console.log(error);
-        }
-    }
+  async Create(nome, nomeUsuario, emailUsuario, senhaUsuario, permissao) {
+    const senhaHash = await bcrypt.hash(senhaUsuario, 12);
 
-    async Update(id, nome, nomeUsuario, emailUsuario, senhaUsuario, permissao) {
-        try {
-            const usuario = await Usuario.findByIdAndUpdate(id, {
-                nome,
-                nomeUsuario,
-                emailUsuario,  
-                senhaUsuario,
-                permissao,
-            },
-            { new: true }
-        );
-            console.log(`Usuario com id ${id} atualizado com sucesso!`);
-            return usuario;
-        } catch (error) {
-            console.log(error);
-        }
+    return Usuario.create({
+      nome,
+      nomeUsuario,
+      emailUsuario,
+      senhaUsuario: senhaHash,
+      permissao,
+    });
+  }
+
+  async Delete(id) {
+    return Usuario.findByIdAndDelete(id);
+  }
+
+  async Update(id, nome, nomeUsuario, emailUsuario, senhaUsuario, permissao) {
+    const dados = {};
+
+    if (nome !== undefined) dados.nome = nome;
+    if (nomeUsuario !== undefined) dados.nomeUsuario = nomeUsuario;
+    if (emailUsuario !== undefined) dados.emailUsuario = emailUsuario;
+    if (permissao !== undefined) dados.permissao = permissao;
+
+    if (senhaUsuario !== undefined && senhaUsuario !== "") {
+      if (typeof senhaUsuario !== "string") {
+        throw new Error("Senha inválida.");
+      }
+
+      dados.senhaUsuario = await bcrypt.hash(senhaUsuario, 12);
     }
 
-    async getOne(id) {
-        try {
-            const usuario = await Usuario.findOne({ _id: id });
-            return usuario;
-        } catch (error) {
-            console.log(error);
-        }
+    return Usuario.findByIdAndUpdate(
+      id,
+      { $set: dados },
+      { new: true, runValidators: true },
+    );
+  }
+
+  async getOne(id) {
+    return Usuario.findById(id);
+  }
+
+  async getByEmail(emailUsuario) {
+    return Usuario.findOne({ emailUsuario }).select("+senhaUsuario");
+  }
+
+  async getByNomeUsuario(nomeUsuario) {
+    return Usuario.findOne({ nomeUsuario });
+  }
+  
+  async validarSenha(usuario, senhaInformada) {
+    const senhaSalva = usuario.senhaUsuario;
+
+    if (typeof senhaSalva !== "string") {
+      return false;
     }
 
-    async getByEmail(emailUsuario) {
-        try {
-            const usuario = await Usuario.findOne({ emailUsuario: emailUsuario });
-            return usuario;
-        } catch (error) {
-            console.log(error);
-        }
+    // Contas que já usam bcrypt.
+    if (/^\$2[aby]\$/.test(senhaSalva)) {
+      return bcrypt.compare(senhaInformada, senhaSalva);
     }
-    
+
+    // Compatibilidade temporária com as contas antigas.
+    const informada = Buffer.from(senhaInformada);
+    const salva = Buffer.from(senhaSalva);
+
+    const confere =
+      informada.length === salva.length &&
+      timingSafeEqual(informada, salva);
+
+    if (!confere) {
+      return false;
+    }
+
+    // Após um login correto, substitui a senha antiga pelo hash.
+    usuario.senhaUsuario = await bcrypt.hash(senhaInformada, 12);
+    await usuario.save();
+
+    return true;
+  }
 }
 
-export default new usuarioService();
+export default new UsuarioService();

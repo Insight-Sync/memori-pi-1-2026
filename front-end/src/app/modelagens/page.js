@@ -56,7 +56,6 @@ export default function ModelagensCMS() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     void loadModelagens();
   }, [loadModelagens]);
