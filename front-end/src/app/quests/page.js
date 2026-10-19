@@ -84,7 +84,6 @@ export default function QuestsCMS() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     void loadQuests();
   }, [loadQuests]);
