@@ -3,7 +3,6 @@ import Usuario from "../models/Usuarios.js";
 
 class TentativaService {
   async salvar(usuarioId, desafioId, tentativaId, tempoSegundos) {
-    // Garante que o índice de duplicidade foi criado.
     await Tentativa.init();
 
     try {
@@ -33,7 +32,6 @@ class TentativaService {
         throw error;
       }
 
-      // Uma tentativa já salva não pode receber outro resultado.
       const conflito =
         tentativa.desafioId !== desafioId ||
         tentativa.tempoSegundos !== tempoSegundos;
@@ -99,6 +97,9 @@ class TentativaService {
           usuarioId: { $toString: "$_id" },
           nome: "$pessoa.nome",
           nomeUsuario: "$pessoa.nomeUsuario",
+          avatar: {
+            $ifNull: ["$pessoa.avatar", "amarelo"],
+          },
           tempoSegundos: 1,
           concluidoEm: 1,
         },
