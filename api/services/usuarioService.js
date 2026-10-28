@@ -16,6 +16,7 @@ class UsuarioService {
       emailUsuario,
       senhaUsuario: senhaHash,
       permissao,
+      avatar: "amarelo",
     });
   }
 
@@ -46,6 +47,14 @@ class UsuarioService {
     );
   }
 
+  async atualizarAvatar(id, avatar) {
+    return Usuario.findByIdAndUpdate(
+      id,
+      { $set: { avatar } },
+      { new: true, runValidators: true },
+    );
+  }
+
   async getOne(id) {
     return Usuario.findById(id);
   }
@@ -57,7 +66,7 @@ class UsuarioService {
   async getByNomeUsuario(nomeUsuario) {
     return Usuario.findOne({ nomeUsuario });
   }
-  
+
   async validarSenha(usuario, senhaInformada) {
     const senhaSalva = usuario.senhaUsuario;
 
@@ -65,12 +74,10 @@ class UsuarioService {
       return false;
     }
 
-    // Contas que já usam bcrypt.
     if (/^\$2[aby]\$/.test(senhaSalva)) {
       return bcrypt.compare(senhaInformada, senhaSalva);
     }
 
-    // Compatibilidade temporária com as contas antigas.
     const informada = Buffer.from(senhaInformada);
     const salva = Buffer.from(senhaSalva);
 
@@ -82,7 +89,6 @@ class UsuarioService {
       return false;
     }
 
-    // Após um login correto, substitui a senha antiga pelo hash.
     usuario.senhaUsuario = await bcrypt.hash(senhaInformada, 12);
     await usuario.save();
 
