@@ -3,21 +3,50 @@ import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import jwtSecret from "../config/auth.js";
 
+const avataresPermitidos = new Set([
+  "amarelo",
+  "azul",
+  "vermelho",
+]);
+
+const dadosPublicosUsuario = (usuario) => ({
+  id: String(usuario._id),
+  nome: usuario.nome,
+  nomeUsuario: usuario.nomeUsuario,
+  emailUsuario: usuario.emailUsuario,
+  permissao: usuario.permissao,
+  avatar: usuario.avatar ?? "amarelo",
+});
+
 const getAllUsuarios = async (req, res) => {
   try {
     const usuarios = await usuarioService.getAll();
-    res.status(200).json({ usuarios: usuarios });
+
+    return res.status(200).json({ usuarios });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "Erro interno do servidor" });
+    console.error("Falha ao listar usuários:", error.message);
+
+    return res.status(500).json({
+      error: "Erro interno do servidor.",
+    });
   }
 };
 
 const createUsuario = async (req, res) => {
   try {
-    const { nome, nomeUsuario, emailUsuario, senhaUsuario } = req.body;
+    const {
+      nome,
+      nomeUsuario,
+      emailUsuario,
+      senhaUsuario,
+    } = req.body;
 
-    const campos = [nome, nomeUsuario, emailUsuario, senhaUsuario];
+    const campos = [
+      nome,
+      nomeUsuario,
+      emailUsuario,
+      senhaUsuario,
+    ];
 
     if (
       campos.some(
@@ -73,12 +102,7 @@ const createUsuario = async (req, res) => {
 
     return res.status(201).json({
       message: "Conta criada com sucesso.",
-      usuario: {
-        id: usuario._id,
-        nome: usuario.nome,
-        nomeUsuario: usuario.nomeUsuario,
-        emailUsuario: usuario.emailUsuario,
-      },
+      usuario: dadosPublicosUsuario(usuario),
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -97,45 +121,75 @@ const createUsuario = async (req, res) => {
 
 const deleteUsuario = async (req, res) => {
   try {
-    if (ObjectId.isValid(req.params.id)) { 
-      const id = req.params.id;
-      await usuarioService.Delete(id);
-      res.sendStatus(204);
-    } else {
-      res.status(400).json({ error: "A ID enviada é invalida" });
-    } 
+    const id = req.params.id;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: "A ID enviada é inválida.",
+      });
+    }
+
+    await usuarioService.Delete(id);
+
+    return res.sendStatus(204);
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "Erro interno do servidor" });
+    console.error("Falha ao excluir usuário:", error.message);
+
+    return res.status(500).json({
+      error: "Erro interno do servidor.",
+    });
   }
 };
 
 const updateUsuario = async (req, res) => {
   try {
     const id = req.params.id;
-    if (ObjectId.isValid(req.params.id)) {
-      const { nome, nomeUsuario, emailUsuario, senhaUsuario, permissao} = req.body;
-      const usuario = await usuarioService.Update(
-        id,
-        nome,
-        nomeUsuario,
-        emailUsuario,
-        senhaUsuario,
-        permissao,
-      );
-      res.status(200).json({ usuario });
-    } else {
-      res.sendStatus(400);
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: "A ID enviada é inválida.",
+      });
     }
+
+    const {
+      nome,
+      nomeUsuario,
+      emailUsuario,
+      senhaUsuario,
+      permissao,
+    } = req.body;
+
+    const usuario = await usuarioService.Update(
+      id,
+      nome,
+      nomeUsuario,
+      emailUsuario,
+      senhaUsuario,
+      permissao,
+    );
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
+
+    return res.status(200).json({ usuario });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "Erro interno do servidor" });
+    console.error("Falha ao atualizar usuário:", error.message);
+
+    return res.status(500).json({
+      error: "Erro interno do servidor.",
+    });
   }
 };
 
 const loginUsuario = async (req, res) => {
   try {
-    const { emailUsuario, senhaUsuario } = req.body;
+    const {
+      emailUsuario,
+      senhaUsuario,
+    } = req.body;
 
     if (
       typeof emailUsuario !== "string" ||
@@ -167,18 +221,14 @@ const loginUsuario = async (req, res) => {
         email: usuario.emailUsuario,
       },
       jwtSecret,
-      { expiresIn: "48h" },
+      {
+        expiresIn: "48h",
+      },
     );
 
     return res.status(200).json({
       token,
-      usuario: {
-        id: usuario._id,
-        nome: usuario.nome,
-        nomeUsuario: usuario.nomeUsuario,
-        emailUsuario: usuario.emailUsuario,
-        permissao: usuario.permissao,
-      },
+      usuario: dadosPublicosUsuario(usuario),
     });
   } catch (error) {
     console.error("Falha ao realizar login:", error.message);
@@ -189,23 +239,90 @@ const loginUsuario = async (req, res) => {
   }
 };
 
- const getOneUsuario = async (req, res) => {
-    try {
-      if (ObjectId.isValid(req.params.id)) {
-        const id = req.params.id;
-        const usuario = await usuarioService.getOne(id);
-        if (!usuario) {
-          res.status(404).json({ error: "Usuário não encontrado." });
-        } else {
-          res.status(200).json({ usuario });
-        } 
-      } else {
-        res.status(400).json({ error: "A ID enviada é invalida" });
-      }
-  } catch (error) {
-      console.log(error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  };
+const getOneUsuario = async (req, res) => {
+  try {
+    const id = req.params.id;
 
-export default {getAllUsuarios, createUsuario, deleteUsuario, updateUsuario, getOneUsuario, loginUsuario};
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: "A ID enviada é inválida.",
+      });
+    }
+
+    const usuario = await usuarioService.getOne(id);
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
+
+    return res.status(200).json({ usuario });
+  } catch (error) {
+    console.error("Falha ao buscar usuário:", error.message);
+
+    return res.status(500).json({
+      error: "Erro interno do servidor.",
+    });
+  }
+};
+
+const atualizarAvatar = async (req, res) => {
+  try {
+    const id = req.loggedUser?.id;
+
+    if (typeof id !== "string" || !ObjectId.isValid(id)) {
+      return res.status(401).json({
+        error: "Usuário autenticado inválido.",
+      });
+    }
+
+    const avatar = req.body?.avatar;
+
+    if (
+      typeof avatar !== "string" ||
+      !avataresPermitidos.has(avatar)
+    ) {
+      return res.status(400).json({
+        error: "Escolha um avatar válido: amarelo, azul ou vermelho.",
+      });
+    }
+
+    const usuario = await usuarioService.atualizarAvatar(
+      id,
+      avatar,
+    );
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
+
+    return res.status(200).json({
+      usuario: dadosPublicosUsuario(usuario),
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        error: "O avatar informado é inválido.",
+      });
+    }
+
+    console.error("Falha ao atualizar avatar:", error.message);
+
+    return res.status(500).json({
+      error: "Erro interno do servidor.",
+    });
+  }
+};
+
+export default {
+  getAllUsuarios,
+  createUsuario,
+  deleteUsuario,
+  updateUsuario,
+  getOneUsuario,
+  loginUsuario,
+  atualizarAvatar,
+};

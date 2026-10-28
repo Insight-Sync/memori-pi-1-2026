@@ -13,6 +13,11 @@ const usuariosSchema = new mongoose.Schema({
     required: true,
     default: false,
   },
+  avatar: {
+    type: String,
+    enum: ["amarelo", "azul", "vermelho"],
+    default: "amarelo",
+  },
 });
 
 usuariosSchema.set("toJSON", {
